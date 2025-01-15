@@ -101,7 +101,7 @@ export function Dashboard() {
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                 className="text-white focus:outline-none"
               >
-                <Menu className="h-6 w-6" />
+                
               </button>
             </div>
 
