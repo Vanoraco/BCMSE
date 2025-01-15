@@ -2,11 +2,41 @@ import React from 'react';
 import { supabase } from '../lib/supabase';
 import toast, { Toaster } from 'react-hot-toast';
 
+// Reusable Modal Component
+function ConfirmationModal({ isOpen, onClose, onConfirm, message }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Confirm Deletion</h2>
+        <p className="text-gray-700 mb-6">{message}</p>
+        <div className="flex justify-end space-x-4">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Setting() {
   const [categories, setCategories] = React.useState<{ id: number; name: string }[]>([]);
   const [newCategoryName, setNewCategoryName] = React.useState('');
   const [editingCategory, setEditingCategory] = React.useState<{ id: number; name: string } | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
+  const [categoryToDelete, setCategoryToDelete] = React.useState<number | null>(null);
 
   // Fetch categories
   const fetchCategories = async () => {
@@ -89,16 +119,27 @@ export function Setting() {
     }
   };
 
-  // Handle deleting a category
-  const handleDeleteCategory = async (categoryId: number) => {
-    const confirmed = window.confirm('Are you sure you want to delete this category?');
-    if (!confirmed) return;
+  // Handle opening the delete confirmation modal
+  const openDeleteModal = (categoryId: number) => {
+    setCategoryToDelete(categoryId);
+    setIsDeleteModalOpen(true);
+  };
+
+  // Handle closing the delete confirmation modal
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setCategoryToDelete(null);
+  };
+
+  // Handle confirming the deletion
+  const confirmDelete = async () => {
+    if (!categoryToDelete) return;
 
     try {
       const { error } = await supabase
         .from('message_categories')
         .delete()
-        .eq('id', categoryId);
+        .eq('id', categoryToDelete);
 
       if (error) {
         console.error('Error deleting category:', error);
@@ -111,6 +152,8 @@ export function Setting() {
     } catch (error) {
       console.error('Caught error:', error);
       toast.error('An error occurred while deleting the category.');
+    } finally {
+      closeDeleteModal();
     }
   };
 
@@ -140,6 +183,14 @@ export function Setting() {
             },
           },
         }}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDelete}
+        message="Are you sure you want to delete this category?"
       />
 
       <h1 className="text-2xl font-semibold text-gray-900 mb-6">Manage Categories</h1>
@@ -238,7 +289,7 @@ export function Setting() {
                     Edit
                   </button>
                   <button
-                    onClick={() => handleDeleteCategory(category.id)}
+                    onClick={() => openDeleteModal(category.id)}
                     className="text-red-600 hover:text-red-900 focus:outline-none"
                   >
                     Delete
