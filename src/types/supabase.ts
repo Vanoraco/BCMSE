@@ -7,6 +7,22 @@ export interface UserProfile {
   created_at: string;
 }
 
+export interface Message {
+  id: string;
+  user_id: string;
+  category_id?: number; // Make category_id optional
+  message: string;
+  created_at: string;
+
+  // Relationships (joined data)
+  profiles?: {
+    email: string;
+  };
+  message_categories?: {
+    name: string;
+  };
+}
+
 export interface Database {
   public: {
     Tables: {
