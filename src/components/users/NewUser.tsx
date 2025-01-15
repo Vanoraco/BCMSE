@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Building2 } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { AccountType } from '../../types/supabase';
+import toast, { Toaster } from 'react-hot-toast';
 
+// Account types for the dropdown
 const accountTypes = [
   { value: 'admin', label: 'Admin' },
   { value: 'chamber', label: 'Ethiopian Chamber of Commerce' },
@@ -25,6 +27,7 @@ export function NewUser() {
     setError('');
 
     try {
+      // Sign up the user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -33,6 +36,7 @@ export function NewUser() {
       if (authError) throw authError;
 
       if (authData.user) {
+        // Insert the user profile into the 'profiles' table
         const { error: profileError } = await supabase
           .from('profiles')
           .insert([
@@ -45,10 +49,15 @@ export function NewUser() {
 
         if (profileError) throw profileError;
 
+        // Success notification
+        toast.success('User created successfully!');
         navigate('/dashboard/users');
       }
     } catch (err) {
+      // Handle errors and show error notification
+      console.error('Error creating user:', err);
       setError('Failed to create user. Please try again.');
+      toast.error('Failed to create user. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -56,11 +65,32 @@ export function NewUser() {
 
   return (
     <div className="p-8">
+      {/* Toast Notifications */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#4CAF50', // Green for success
+            color: '#fff',
+            zIndex: 9999, // Ensure it's on top
+          },
+          error: {
+            style: {
+              background: '#FF5252', // Red for errors
+              color: '#fff',
+              zIndex: 9999, // Ensure it's on top
+            },
+          },
+        }}
+      />
+
       <div className="max-w-2xl mx-auto">
         <h1 className="text-2xl font-semibold text-gray-900 mb-6">Add New User</h1>
-        
+
         <div className="bg-white shadow-md rounded-lg p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Account Type Dropdown */}
             <div>
               <label htmlFor="accountType" className="block text-sm font-medium text-gray-700">
                 Account Type
@@ -82,6 +112,7 @@ export function NewUser() {
               </div>
             </div>
 
+            {/* Email Input */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email address
@@ -101,6 +132,7 @@ export function NewUser() {
               </div>
             </div>
 
+            {/* Password Input */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
@@ -117,10 +149,10 @@ export function NewUser() {
               </div>
             </div>
 
-            {error && (
-              <div className="text-red-600 text-sm">{error}</div>
-            )}
+            {/* Error Message */}
+            {error && <div className="text-red-600 text-sm">{error}</div>}
 
+            {/* Form Buttons */}
             <div className="flex justify-end space-x-3">
               <button
                 type="button"

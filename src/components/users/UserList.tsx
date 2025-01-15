@@ -3,11 +3,42 @@ import { useNavigate } from 'react-router-dom';
 import { UserPlus, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { UserProfile } from '../../types/supabase';
+import toast, { Toaster } from 'react-hot-toast';
+
+// Reusable Modal Component
+function ConfirmationModal({ isOpen, onClose, onConfirm, message }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Confirm Deletion</h2>
+        <p className="text-gray-700 mb-6">{message}</p>
+        <div className="flex justify-end space-x-4">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function UserList() {
   const [users, setUsers] = React.useState<UserProfile[]>([]);
   const [loading, setLoading] = React.useState(true);
   const navigate = useNavigate();
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
+  const [userToDelete, setUserToDelete] = React.useState<string | null>(null);
 
   const fetchUsers = async () => {
     const { data, error } = await supabase
@@ -17,6 +48,7 @@ export function UserList() {
 
     if (error) {
       console.error('Error fetching users:', error);
+      toast.error('Failed to fetch users.');
       return;
     }
 
@@ -28,38 +60,50 @@ export function UserList() {
     fetchUsers();
   }, []);
 
-  const handleDelete = async (userId: string) => {
-    const confirmed = window.confirm('Are you sure you want to delete this user?');
-    if (!confirmed) return;
+  // Handle opening the delete confirmation modal
+  const openDeleteModal = (userId: string) => {
+    setUserToDelete(userId);
+    setIsDeleteModalOpen(true);
+  };
+
+  // Handle closing the delete confirmation modal
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setUserToDelete(null);
+  };
+
+  // Handle confirming the deletion
+  const confirmDelete = async () => {
+    if (!userToDelete) return;
 
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
-    console.log('Authenticated user:', user?.id);
-    console.log(user);
-
     if (!user?.id) {
       console.error('No authenticated user found.');
+      toast.error('No authenticated user found.');
       return;
     }
 
     // Perform deletion with an additional condition for the admin ID
     try {
       const { error: deleteError } = await supabase.rpc('delete_user_with_admin_check', {
-        target_user_id: userId,
+        target_user_id: userToDelete,
         deleter_user_id: user.id,
       });
 
-      console.log(userId);
-
       if (deleteError) {
         console.error('Delete error:', deleteError.message);
+        toast.error('Failed to delete user.');
         return;
       }
 
-      console.log('User successfully deleted.');
+      toast.success('User deleted successfully.');
       fetchUsers(); // Refresh the user list
     } catch (error) {
       console.error('Caught error:', error);
+      toast.error('An error occurred while deleting the user.');
+    } finally {
+      closeDeleteModal();
     }
   };
 
@@ -80,6 +124,32 @@ export function UserList() {
 
   return (
     <div className="p-4 sm:p-8">
+      {/* Toast Notifications */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#4CAF50', // Green for success
+            color: '#fff',
+          },
+          error: {
+            style: {
+              background: '#FF5252', // Red for errors
+              color: '#fff',
+            },
+          },
+        }}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDelete}
+        message="Are you sure you want to delete this user?"
+      />
+
       <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold text-gray-900 mb-4 sm:mb-0">Manage Users</h1>
         <button
@@ -123,7 +193,7 @@ export function UserList() {
                 </td>
                 <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button
-                    onClick={() => handleDelete(user.id)}
+                    onClick={() => openDeleteModal(user.id)}
                     className="text-red-600 hover:text-red-900 focus:outline-none"
                   >
                     <Trash2 className="h-5 w-5" />

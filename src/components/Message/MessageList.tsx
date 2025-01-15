@@ -4,6 +4,34 @@ import { supabase } from '../../lib/supabase';
 import { Trash2, Plus, Search, Mail } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
+// Reusable Modal Component
+function ConfirmationModal({ isOpen, onClose, onConfirm, message }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Confirm Deletion</h2>
+        <p className="text-gray-700 mb-6">{message}</p>
+        <div className="flex justify-end space-x-4">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MessageList() {
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -19,6 +47,8 @@ export function MessageList() {
   const [showOnlyMyMessages, setShowOnlyMyMessages] = React.useState(false); // For admins only
   const [currentUserId, setCurrentUserId] = React.useState<string | null>(null); // Store current user ID
   const [showSentMessages, setShowSentMessages] = React.useState(false); // For non-admins to toggle their messages
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
+  const [messageToDelete, setMessageToDelete] = React.useState<string | null>(null);
 
   // Fetch the current user's profile to check if they are an admin
   const fetchCurrentUserProfile = async () => {
@@ -90,16 +120,27 @@ export function MessageList() {
     fetchCategories();
   }, []);
 
-  // Handle message deletion
-  const handleDelete = async (messageId: string) => {
-    const confirmed = window.confirm('Are you sure you want to delete this message?');
-    if (!confirmed) return;
+  // Handle opening the delete confirmation modal
+  const openDeleteModal = (messageId: string) => {
+    setMessageToDelete(messageId);
+    setIsDeleteModalOpen(true);
+  };
+
+  // Handle closing the delete confirmation modal
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setMessageToDelete(null);
+  };
+
+  // Handle confirming the deletion
+  const confirmDelete = async () => {
+    if (!messageToDelete) return;
 
     try {
       const { error } = await supabase
         .from('messages')
         .delete()
-        .eq('id', messageId);
+        .eq('id', messageToDelete);
 
       if (error) {
         console.error('Error deleting message:', error);
@@ -112,6 +153,8 @@ export function MessageList() {
     } catch (error) {
       console.error('Caught error:', error);
       toast.error('An error occurred while deleting the message.');
+    } finally {
+      closeDeleteModal();
     }
   };
 
@@ -199,6 +242,14 @@ export function MessageList() {
             },
           },
         }}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDelete}
+        message="Are you sure you want to delete this message?"
       />
 
       <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
@@ -352,7 +403,7 @@ export function MessageList() {
                   </td>
                   <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
-                      onClick={() => handleDelete(message.id)}
+                      onClick={() => openDeleteModal(message.id)}
                       className="text-red-600 hover:text-red-900 focus:outline-none mr-2"
                     >
                       <Trash2 className="h-5 w-5" />
